@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ztkraken | OSINT</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            position: relative;
+        }
+
+        .terminal {
+            border: 1px solid #1a1a1a;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            padding: 15px 25px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 15, 15, 0.9);
+        }
+
+        .logo {
+            font-size: 0.9rem;
+            color: #666;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .ascii-art {
+            font-family: 'SF Mono', 'Cascadia Code', monospace;
+            font-weight: bold;
+            font-size: 11px;
+            line-height: 1.1;
+            margin: 0 auto;
+            padding: 20px;
+            white-space: pre;
+            text-align: center;
+            background: linear-gradient(90deg, #ff0000, #ff9900, #ffff00, #00ff00, #0099ff, #6600ff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: rainbow 8s linear infinite;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            border: 1px solid #1a1a1a;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        .auth-section {
+            margin: 40px auto 0;
+            max-width: 500px;
+            padding: 25px;
+            border: 1px solid #1a1a1a;
+            background: rgba(15, 15, 15, 0.7);
+        }
+
+        .auth-label {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        .password-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #333;
+            color: #fff;
+            font-size: 1rem;
+            padding: 10px 0;
+            outline: none;
+            letter-spacing: 1px;
+            transition: border-color 0.3s ease;
+        }
+
+        .password-input:focus {
+            border-bottom-color: #00ff00;
+        }
+
+        .input-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: #00ff00;
+            transition: width 0.3s ease;
+        }
+
+        .password-input:focus + .input-line {
+            width: 100%;
+        }
+
+        .error-message {
+            color: #ff5555;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            min-height: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .error-message.show {
+            opacity: 1;
+        }
+
+        .access-granted {
+            color: #00ff00;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.5s ease;
+        }
+
+        .access-granted.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .resources-container {
+            margin-top: 40px;
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.6s ease;
+        }
+
+        .resources-container.visible {
+            opacity: 1;
+            max-height: 6000px;
+        }
+
+        .section-title {
+            color: #fff;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 30px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            font-size: 0.8rem;
+            color: #00ff00;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .resource-card {
+            border: 1px solid #1a1a1a;
+            padding: 15px;
+            transition: all 0.3s ease;
+            background: rgba(20, 20, 20, 0.5);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .resource-card:hover {
+            border-color: #00ff00;
+            background: rgba(0, 30, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .resource-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 1px;
+            background: #00ff00;
+            transition: left 0.3s ease;
+        }
+
+        .resource-card:hover::before {
+            left: 0;
+        }
+
+        .resource-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .resource-name {
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .resource-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+        }
+
+        .resource-desc {
+            color: #888;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .quick-search {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-btn {
+            background: rgba(30, 30, 30, 0.7);
+            border: 1px solid #1a1a1a;
+            color: #aaa;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            border-color: #00ff00;
+            color: #fff;
+            background: rgba(0, 30, 0, 0.3);
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #1a1a1a;
+            color: #666;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+
+        .counter {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+            border-radius: 2px;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .ascii-art { font-size: 8px; padding: 15px; }
+            .content { padding: 20px 15px; }
+            .grid { grid-template-columns: 1fr; }
+            .header { padding: 12px 15px; }
+            .auth-section { padding: 20px; }
+        }
+
+        @media (max-width: 480px) {
+            .ascii-art { font-size: 6px; }
+            body { padding: 10px; }
+            .resource-card { padding: 12px; }
+        }
+
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+            color: #ff00ff;
+            z-index: -1;
+        }
+
+        .glitch::after {
+            animation: glitch-anim2 3s infinite linear alternate-reverse;
+            color: #00ffff;
+            z-index: -2;
+        }
+
+        @keyframes glitch-anim {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        @keyframes glitch-anim2 {
+            0% { transform: translate(0); }
+            10% { transform: translate(-1px, 1px); }
+            30% { transform: translate(1px, -1px); }
+            50% { transform: translate(-1px, -1px); }
+            70% { transform: translate(1px, 1px); }
+            90% { transform: translate(-1px, 1px); }
+            100% { transform: translate(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="terminal">
+            <div class="header">
+                <div class="logo">ZTKRAKEN_OSINT</div>
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>SYSTEM ACTIVE</span>
+                </div>
+            </div>
+            
+            <div class="content">
+                <div class="ascii-art glitch" data-text="          __   __                   __                      ________   
+_________/  |_|  | ______________  |  | __ ____   ____      \_____  \  
+\___   /\   __\  |/ /\_  __ \__  \ |  |/ // __ \ /    \      /  / \  \ 
+ /    /  |  | |    <  |  | \// __ \|    <\  ___/|   |  \    /   \_/.  \
+/_____ \ |__| |__|_ \ |__|  (____  /__|_ \\___  >___|  /____\_____\ \_/
+      \/           \/            \/     \/    \/     \/_____/      \__>">
+          __   __                   __                      ________   
+_________/  |_|  | ______________  |  | __ ____   ____      \_____  \  
+\___   /\   __\  |/ /\_  __ \__  \ |  |/ // __ \ /    \      /  / \  \ 
+ /    /  |  | |    <  |  | \// __ \|    <\  ___/|   |  \    /   \_/.  \
+/_____ \ |__| |__|_ \ |__|  (____  /__|_ \\___  >___|  /____\_____\ \_/
+      \/           \/            \/     \/    \/     \/_____/      \__>
+                </div>
+                
+                <div class="auth-section">
+                    <label class="auth-label">Требуется авторизация</label>
+                    <div class="input-container">
+                        <input type="password" class="password-input" placeholder="введите пароль доступа..." id="passwordInput">
+                        <div class="input-line"></div>
+                    </div>
+                    <div class="error-message" id="errorMessage"></div>
+                </div>
+                
+                <div class="access-granted" id="accessGranted">
+                    <i class="fas fa-check-circle"></i> Доступ разрешен. Загрузка ресурсов...
+                </div>
+                
+                <div class="resources-container" id="resourcesContainer">
+                    <!-- VPN Сервисы -->
+                    <div class="section-title">
+                        <i class="fas fa-shield-alt"></i> VPN Сервисы
+                    </div>
+                    <div class="grid">
+                        <div class="resource-card" onclick="window.open('https://www.expressvpn.com/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">ExpressVPN</div>
+                                <div class="resource-tag">No Logs</div>
+                            </div>
+                            <div class="resource-desc">Высокая скорость, 94 страны, строгая политика приватности</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://nordvpn.com/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">NordVPN</div>
+                                <div class="resource-tag">Double VPN</div>
+                            </div>
+                            <div class="resource-desc">Двойное шифрование, 60 стран, убийца соединения</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://mullvad.net/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Mullvad</div>
+                                <div class="resource-tag">Анонимный</div>
+                            </div>
+                            <div class="resource-desc">Оплата Bitcoin, без регистрации, шведская юрисдикция</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://protonvpn.com/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">ProtonVPN</div>
+                                <div class="resource-tag">Швейцария</div>
+                            </div>
+                            <div class="resource-desc">От создателей ProtonMail, бесплатный тариф, открытый код</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Поиск по лицу -->
+                    <div class="section-title">
+                        <i class="fas fa-camera"></i> Поиск по лицу
+                    </div>
+                    <div class="grid">
+                        <div class="resource-card" onclick="window.open('https://pimeyes.com/ru', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">PimEyes</div>
+                                <div class="resource-tag">Обратный поиск</div>
+                            </div>
+                            <div class="resource-desc">Поиск фото по лицу в интернете</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://facecheck.id', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">FaceCheck.ID</div>
+                                <div class="resource-tag">Бесплатный</div>
+                            </div>
+                            <div class="resource-desc">Поиск по лицу в соцсетях</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://images.google.com', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Google Images</div>
+                                <div class="resource-tag">Обратный поиск</div>
+                            </div>
+                            <div class="resource-desc">Поиск по изображению</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://yandex.ru/images/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Yandex Images</div>
+                                <div class="resource-tag">RU</div>
+                            </div>
+                            <div class="resource-desc">Обратный поиск с лучшим покрытием РФ</div>
+                        </div>
+                    </div>
+                    
+                    <!-- ВКонтакте -->
+                    <div class="section-title">
+                        <i class="fab fa-vk"></i> ВКонтакте
+                    </div>
+                    <div class="grid">
+                        <div class="resource-card" onclick="window.open('https://vk.com/people', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Поиск людей</div>
+                                <div class="resource-tag">Официальный</div>
+                            </div>
+                            <div class="resource-desc">Поиск пользователей ВК с фильтрами</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://vk.com/groups', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Поиск групп</div>
+                                <div class="resource-tag">Сообщества</div>
+                            </div>
+                            <div class="resource-desc">Поиск сообществ и публичных страниц</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://vk.com/wall', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Поиск постов</div>
+                                <div class="resource-tag">Контент</div>
+                            </div>
+                            <div class="resource-desc">Поиск по записям на стенах</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://github.com/soxoj/maigret', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Maigret</div>
+                                <div class="resource-tag">GitHub</div>
+                            </div>
+                            <div class="resource-desc">Сбор информации о пользователях ВК</div>
+                        </div>
+                    </div>
+                    
+                    <!-- OSINT Инструменты -->
+                    <div class="section-title">
+                        <i class="fas fa-search"></i> OSINT Инструменты
+                    </div>
+                    <div class="grid">
+                        <div class="resource-card" onclick="window.open('https://github.com/sherlock-project/sherlock', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Sherlock</div>
+                                <div class="resource-tag">Username</div>
+                            </div>
+                            <div class="resource-desc">Поиск аккаунтов по имени на 300+ сайтах</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://haveibeenpwned.com', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Have I Been Pwned</div>
+                                <div class="resource-tag">Утечки</div>
+                            </div>
+                            <div class="resource-desc">Проверка email в утечках данных</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://www.shodan.io', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Shodan</div>
+                                <div class="resource-tag">IoT Поиск</div>
+                            </div>
+                            <div class="resource-desc">Поисковая система для интернета вещей</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://github.com/megadose/holehe', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Holehe</div>
+                                <div class="resource-tag">Email</div>
+                            </div>
+                            <div class="resource-desc">Проверка email на регистрацию в сервисах</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Анонимность -->
+                    <div class="section-title">
+                        <i class="fas fa-user-secret"></i> Анонимность
+                    </div>
+                    <div class="grid">
+                        <div class="resource-card" onclick="window.open('https://www.torproject.org/download/', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Tor Browser</div>
+                                <div class="resource-tag">Браузер</div>
+                            </div>
+                            <div class="resource-desc">Анонимный браузер для защиты приватности</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://tails.boum.org', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Tails OS</div>
+                                <div class="resource-tag">Live OS</div>
+                            </div>
+                            <div class="resource-desc">Анонимная операционная система</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://www.whonix.org', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Whonix</div>
+                                <div class="resource-tag">ОС</div>
+                            </div>
+                            <div class="resource-desc">Десктопная ОС для анонимности</div>
+                        </div>
+                        
+                        <div class="resource-card" onclick="window.open('https://privacyguides.org', '_blank')">
+                            <div class="resource-header">
+                                <div class="resource-name">Privacy Guides</div>
+                                <div class="resource-tag">Руководство</div>
+                            </div>
+                            <div class="resource-desc">Руководство по защите приватности</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Быстрый поиск -->
+                    <div class="section-title">
+                        <i class="fas fa-bolt"></i> Быстрый поиск
+                    </div>
+                    <div class="quick-search">
+                        <button class="search-btn" onclick="window.open('https://www.google.com/search?q=', '_blank')">
+                            Google
+                        </button>
+                        <button class="search-btn" onclick="window.open('https://yandex.ru/search/?text=', '_blank')">
+                            Yandex
+                        </button>
+                        <button class="search-btn" onclick="window.open('https://duckduckgo.com/?q=', '_blank')">
+                            DuckDuckGo
+                        </button>
+                        <button class="search-btn" onclick="window.open('https://github.com/search?q=', '_blank')">
+                            GitHub
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <span>Ресурсы: <span class="counter" id="resourceCounter">0</span></span>
+                    <span style="margin-left: 20px;">Статус: <span id="accessStatus">ЗАБЛОКИРОВАН</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const passwordInput = document.getElementById('passwordInput');
+        const errorMessage = document.getElementById('errorMessage');
+        const accessGranted = document.getElementById('accessGranted');
+        const resourcesContainer = document.getElementById('resourcesContainer');
+        const resourceCounter = document.getElementById('resourceCounter');
+        const accessStatus = document.getElementById('accessStatus');
+        
+        const CORRECT_PASSWORD = "drurbbDR84y";
+        let hasAccess = sessionStorage.getItem('hasAccess') === 'true';
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+                passwordInput.value = '';
+            }, 2000);
+        }
+        
+        function grantAccess() {
+            hasAccess = true;
+            sessionStorage.setItem('hasAccess', 'true');
+            
+            // Показываем доступ
+            accessGranted.classList.add('show');
+            accessStatus.textContent = 'ДОСТУП РАЗРЕШЕН';
+            accessStatus.style.color = '#00ff00';
+            
+            // Анимация счетчика
+            let count = 0;
+            const targetCount = 24; // Количество ресурсов
+            const counterInterval = setInterval(() => {
+                count++;
+                resourceCounter.textContent = count;
+                if (count >= targetCount) {
+                    clearInterval(counterInterval);
+                    resourceCounter.textContent = targetCount + '+';
+                }
+            }, 50);
+            
+            // Блокируем ввод
+            passwordInput.disabled = true;
+            
+            // Показываем ресурсы через задержку
+            setTimeout(() => {
+                resourcesContainer.classList.add('visible');
+            }, 1000);
+        }
+        
+        function init() {
+            if (hasAccess) {
+                grantAccess();
+                setTimeout(() => {
+                    resourcesContainer.classList.add('visible');
+                    resourceCounter.textContent = '24+';
+                    accessStatus.textContent = 'ДОСТУП РАЗРЕШЕН';
+                    accessStatus.style.color = '#00ff00';
+                }, 100);
+            }
+            
+            passwordInput.focus();
+            
+            // Автозаполнение для тестирования
+            passwordInput.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    passwordInput.value = CORRECT_PASSWORD;
+                    checkPassword();
+                }
+            });
+        }
+        
+        function checkPassword() {
+            const input = passwordInput.value.trim();
+            
+            if (!input) {
+                showError('Введите пароль');
+                return;
+            }
+            
+            if (input === CORRECT_PASSWORD) {
+                grantAccess();
+            } else {
+                showError('Неверный пароль');
+            }
+        }
+        
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+        
+        // Добавляем случайные глитч-эффекты
+        setInterval(() => {
+            if (!hasAccess && Math.random() > 0.8) {
+                const ascii = document.querySelector('.ascii-art');
+                ascii.style.animation = 'none';
+                setTimeout(() => {
+                    ascii.style.animation = 'rainbow 8s linear infinite';
+                }, 100);
+            }
+        }, 5000);
+        
+        init();
+    </script>
+</body>
+</html>
